@@ -1,4 +1,4 @@
-# HashCal
+# hash-calendar
 
 HashCal is a lightweight, client-only calendar. Your calendar state lives entirely in the URL hash, so sharing is as simple as copying the link. No backend, no accounts.
 
