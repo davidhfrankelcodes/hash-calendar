@@ -4,6 +4,7 @@ import { renderAgendaView } from "./modules/agendaRender.js";
 import { FocusMode } from "./modules/focusMode.js";
 import { initQRCodeManager } from "./modules/qrCodeManager.js";
 import { initCountdownWidget } from "./modules/countdownManager.js";
+import { AVAILABLE_ZONES, getZoneInfo, isValidZone } from "./modules/timezoneManager.js";
 import {
   formatDateKey,
   getMonthGridRange,
@@ -27,10 +28,15 @@ const DEFAULT_STATE = {
     m: 0,
     v: DEFAULT_VIEW,
   },
+  timezones: [],
 };
 
 const DEBOUNCE_MS = 500;
 const MAX_TITLE_LENGTH = 60;
+const MAX_TZ_RESULTS = 12;
+const TZ_EMPTY_MESSAGE = "No matches yet. Try a city, region, or UTC+5:30.";
+const MOBILE_WARNING_QUERY = "(max-width: 1024px)";
+const MOBILE_WARNING_KEY = "hashcal.mobileWarningDismissed";
 
 let state = cloneState(DEFAULT_STATE);
 let viewDate = startOfDay(new Date());
@@ -45,6 +51,7 @@ let passwordResolver = null;
 let passwordMode = "unlock";
 let focusMode = null;
 let qrManager = null;
+let timezoneTimer = null;
 
 const ui = {};
 
@@ -113,6 +120,21 @@ function applyStoredView() {
   updateViewButtons();
 }
 
+function normalizeTimezones(rawZones) {
+  if (!Array.isArray(rawZones)) return [];
+  const zones = [];
+  const seen = new Set();
+  rawZones.forEach((zone) => {
+    if (typeof zone !== "string") return;
+    const trimmed = zone.trim();
+    if (!trimmed || seen.has(trimmed)) return;
+    if (!isValidZone(trimmed)) return;
+    seen.add(trimmed);
+    zones.push(trimmed);
+  });
+  return zones;
+}
+
 function normalizeState(raw) {
   const next = cloneState(DEFAULT_STATE);
   if (!raw || typeof raw !== "object") return next;
@@ -158,10 +180,17 @@ function normalizeState(raw) {
     next.s.v = getStoredView(raw.s.v);
   }
 
+  if (Array.isArray(raw.timezones) || Array.isArray(raw.z) || Array.isArray(raw.tz)) {
+    const zones = Array.isArray(raw.timezones) ? raw.timezones : Array.isArray(raw.z) ? raw.z : raw.tz;
+    next.timezones = normalizeTimezones(zones);
+  }
+
   return next;
 }
 
 function cacheElements() {
+  ui.mobileWarning = document.getElementById("mobile-warning");
+  ui.mobileWarningDismiss = document.getElementById("mobile-warning-dismiss");
   ui.topbar = document.querySelector(".topbar");
   ui.titleInput = document.getElementById("calendar-title");
   ui.prevMonth = document.getElementById("prev-month");
@@ -226,6 +255,15 @@ function cacheElements() {
   ui.jsonDownload = document.getElementById("json-download");
 
   ui.toastContainer = document.getElementById("toast-container");
+
+  ui.tzSidebar = document.getElementById("timezone-ruler");
+  ui.tzList = document.getElementById("tz-list");
+  ui.tzAddBtn = document.getElementById("add-tz-btn");
+  ui.tzModal = document.getElementById("tz-modal");
+  ui.tzSearch = document.getElementById("tz-search");
+  ui.tzResults = document.getElementById("tz-results");
+  ui.tzClose = document.getElementById("close-tz-modal");
+  ui.tzEmpty = document.getElementById("tz-empty");
 }
 
 function showToast(message, type = "info") {
@@ -239,9 +277,302 @@ function showToast(message, type = "info") {
   }, 3200);
 }
 
+function isMobileViewport() {
+  if (window.matchMedia) {
+    return window.matchMedia(MOBILE_WARNING_QUERY).matches;
+  }
+  return window.innerWidth <= 720;
+}
+
+function getMobileWarningDismissed() {
+  try {
+    return window.localStorage.getItem(MOBILE_WARNING_KEY) === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function setMobileWarningDismissed() {
+  try {
+    window.localStorage.setItem(MOBILE_WARNING_KEY, "1");
+  } catch (error) {
+    // Ignore storage errors (private mode, blocked, etc.).
+  }
+}
+
+function updateMobileWarningVisibility() {
+  if (!ui.mobileWarning) return;
+  const shouldShow = isMobileViewport() && !getMobileWarningDismissed();
+  ui.mobileWarning.classList.toggle("hidden", !shouldShow);
+}
+
+function dismissMobileWarning() {
+  setMobileWarningDismissed();
+  if (ui.mobileWarning) ui.mobileWarning.classList.add("hidden");
+}
+
+function initMobileWarning() {
+  if (!ui.mobileWarning) return;
+  updateMobileWarningVisibility();
+  window.addEventListener("resize", updateMobileWarningVisibility);
+  if (!window.matchMedia) return;
+  const mediaQuery = window.matchMedia(MOBILE_WARNING_QUERY);
+  const handleChange = () => updateMobileWarningVisibility();
+  if (mediaQuery.addEventListener) {
+    mediaQuery.addEventListener("change", handleChange);
+  } else if (mediaQuery.addListener) {
+    mediaQuery.addListener(handleChange);
+  }
+}
+
+function hasStoredData() {
+  return (state.e && state.e.length) || (state.timezones && state.timezones.length);
+}
+
+function getLocalZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+function createTzCard(zoneId, isLocal) {
+  const data = getZoneInfo(zoneId);
+  const div = document.createElement("div");
+  div.className = `tz-card${isLocal ? " is-local" : ""}`;
+
+  div.innerHTML = `
+    <div class="tz-name">
+      <span class="tz-label">${data.name}</span>
+      <span class="tz-offset">UTC${data.offset}</span>
+    </div>
+    <div class="tz-time">${data.time}</div>
+    ${data.dayDiff ? `<div class="tz-diff">${data.dayDiff}</div>` : ""}
+    ${!isLocal ? `<button class="tz-remove" type="button" data-zone="${data.fullZone}" aria-label="Remove timezone">x</button>` : ""}
+  `;
+
+  return div;
+}
+
+function renderTimezones() {
+  if (!ui.tzList) return;
+  ui.tzList.innerHTML = "";
+
+  const localZone = getLocalZone();
+  ui.tzList.appendChild(createTzCard(localZone, true));
+
+  const zones = Array.isArray(state.timezones) ? state.timezones : [];
+  let added = 0;
+  const seen = new Set();
+  zones.forEach((zone) => {
+    if (zone === localZone) return;
+    if (seen.has(zone)) return;
+    if (!isValidZone(zone)) return;
+    seen.add(zone);
+    ui.tzList.appendChild(createTzCard(zone, false));
+    added += 1;
+  });
+
+  if (!added) {
+    const empty = document.createElement("p");
+    empty.className = "tz-empty";
+    empty.textContent = "Add a timezone to compare.";
+    ui.tzList.appendChild(empty);
+  }
+}
+
+function addTimezone(zoneStr) {
+  if (!zoneStr || !isValidZone(zoneStr)) return;
+  const localZone = getLocalZone();
+  if (zoneStr === localZone) return;
+  if (!Array.isArray(state.timezones)) state.timezones = [];
+  if (state.timezones.includes(zoneStr)) return;
+  state.timezones.push(zoneStr);
+  scheduleSave();
+  renderTimezones();
+}
+
+function removeTimezone(zoneStr) {
+  if (!Array.isArray(state.timezones) || !zoneStr) return;
+  state.timezones = state.timezones.filter((zone) => zone !== zoneStr);
+  scheduleSave();
+  renderTimezones();
+}
+
+function renderTzResults(results) {
+  if (!ui.tzResults) return;
+  ui.tzResults.innerHTML = "";
+  results.forEach((zone) => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tz-result-btn";
+    const info = getZoneInfo(zone);
+    const name = document.createElement("span");
+    name.className = "tz-result-name";
+    name.textContent = zone;
+    const offset = document.createElement("span");
+    offset.className = "tz-result-offset";
+    offset.textContent = `UTC${info.offset}`;
+    button.append(name, offset);
+    button.dataset.zone = zone;
+    li.appendChild(button);
+    ui.tzResults.appendChild(li);
+  });
+}
+
+function parseOffsetSearchTerm(raw) {
+  if (!raw) return null;
+  let term = raw.toLowerCase().replace(/\s+/g, "");
+  let hasPrefix = false;
+  if (term.startsWith("utc")) {
+    term = term.slice(3);
+    hasPrefix = true;
+  } else if (term.startsWith("gmt")) {
+    term = term.slice(3);
+    hasPrefix = true;
+  }
+  if (!term) return null;
+
+  let sign = null;
+  if (term.startsWith("+") || term.startsWith("-")) {
+    sign = term[0];
+    term = term.slice(1);
+  }
+
+  const hasSeparator = term.includes(":") || term.includes(".");
+
+  let hours = null;
+  let minutes = null;
+  let hasMinutes = false;
+
+  if (hasSeparator) {
+    const parts = term.split(/[:.]/);
+    if (parts.length !== 2) return null;
+    hours = Number(parts[0]);
+    minutes = Number(parts[1]);
+    hasMinutes = parts[1].length > 0;
+  } else if (/^\d{1,2}$/.test(term)) {
+    hours = Number(term);
+    minutes = 0;
+  } else if (/^\d{3,4}$/.test(term)) {
+    const padded = term.padStart(4, "0");
+    hours = Number(padded.slice(0, 2));
+    minutes = Number(padded.slice(2));
+    hasMinutes = true;
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  if (hours > 14 || minutes > 59) return null;
+
+  const signChar = sign || "+";
+  const value = `${signChar}${hours}:${String(minutes).padStart(2, "0")}`;
+  return { value, sign, hours, minutes, hasMinutes };
+}
+
+function handleTzSearch() {
+  if (!ui.tzSearch) return;
+  const term = ui.tzSearch.value.trim().toLowerCase();
+  const offsetQuery = parseOffsetSearchTerm(term);
+  if (!AVAILABLE_ZONES.length) {
+    if (ui.tzEmpty) {
+      ui.tzEmpty.textContent = "Timezone search isn't supported in this browser.";
+      ui.tzEmpty.classList.remove("hidden");
+    }
+    renderTzResults([]);
+    return;
+  }
+  if (term.length < 2 && !offsetQuery) {
+    renderTzResults([]);
+    if (ui.tzEmpty) ui.tzEmpty.classList.add("hidden");
+    return;
+  }
+  const localZone = getLocalZone();
+  const existing = new Set([localZone, ...(state.timezones || [])]);
+  const matches = AVAILABLE_ZONES.filter((zone) => {
+    if (existing.has(zone)) return false;
+    const zoneLower = zone.toLowerCase();
+    if (zoneLower.includes(term)) return true;
+    if (offsetQuery) {
+      const zoneOffset = getZoneInfo(zone).offset;
+      const normalized = `${offsetQuery.hours}:${String(offsetQuery.minutes).padStart(2, "0")}`;
+      if (offsetQuery.hasMinutes) {
+        if (offsetQuery.sign) {
+          return zoneOffset === `${offsetQuery.sign}${normalized}`;
+        }
+        return zoneOffset === `+${normalized}` || zoneOffset === `-${normalized}`;
+      }
+      if (offsetQuery.sign) {
+        return zoneOffset.startsWith(`${offsetQuery.sign}${offsetQuery.hours}`);
+      }
+      return zoneOffset.startsWith(`+${offsetQuery.hours}`) || zoneOffset.startsWith(`-${offsetQuery.hours}`);
+    }
+    return false;
+  }).slice(0, MAX_TZ_RESULTS);
+  renderTzResults(matches);
+  if (ui.tzEmpty) {
+    ui.tzEmpty.textContent = TZ_EMPTY_MESSAGE;
+    ui.tzEmpty.classList.toggle("hidden", matches.length > 0);
+  }
+}
+
+function openTzModal() {
+  if (!ui.tzModal) return;
+  if (ui.tzSearch) ui.tzSearch.value = "";
+  if (ui.tzEmpty) {
+    ui.tzEmpty.textContent = TZ_EMPTY_MESSAGE;
+    ui.tzEmpty.classList.add("hidden");
+  }
+  renderTzResults([]);
+  handleTzSearch();
+  if (typeof ui.tzModal.showModal === "function") {
+    ui.tzModal.showModal();
+  } else {
+    ui.tzModal.setAttribute("open", "");
+  }
+  if (ui.tzSearch) ui.tzSearch.focus();
+}
+
+function closeTzModal() {
+  if (!ui.tzModal) return;
+  if (typeof ui.tzModal.close === "function") {
+    ui.tzModal.close();
+  } else {
+    ui.tzModal.removeAttribute("open");
+  }
+}
+
+function handleTzResultsClick(event) {
+  const button = event.target.closest("button[data-zone]");
+  if (!button) return;
+  const zone = button.dataset.zone;
+  addTimezone(zone);
+  closeTzModal();
+}
+
+function handleTzListClick(event) {
+  const button = event.target.closest("button[data-zone]");
+  if (!button) return;
+  removeTimezone(button.dataset.zone);
+}
+
+function initTimezones() {
+  if (!ui.tzList) return;
+  renderTimezones();
+  if (timezoneTimer) {
+    window.clearInterval(timezoneTimer);
+    timezoneTimer = null;
+  }
+  const now = new Date();
+  const delay = (60 - now.getSeconds()) * 1000;
+  window.setTimeout(() => {
+    renderTimezones();
+    timezoneTimer = window.setInterval(renderTimezones, 60000);
+  }, delay);
+}
+
 async function persistStateToHash() {
   if (lockState.encrypted && !lockState.unlocked) return;
-  if (!state.e.length) {
+  if (!hasStoredData()) {
     if (window.location.hash) clearHash();
     updateUrlLength();
     if (ui.jsonModal && !ui.jsonModal.classList.contains("hidden")) {
@@ -258,7 +589,7 @@ async function persistStateToHash() {
 
 function scheduleSave() {
   if (lockState.encrypted && !lockState.unlocked) return;
-  if (!state.e.length) {
+  if (!hasStoredData()) {
     if (saveTimer) {
       window.clearTimeout(saveTimer);
       saveTimer = null;
@@ -473,6 +804,7 @@ function render() {
   }
 
   renderEventList();
+  renderTimezones();
   updateUrlLength();
   if (ui.jsonModal && !ui.jsonModal.classList.contains("hidden")) {
     updateJsonModal();
@@ -997,6 +1329,7 @@ function handleClearAll() {
 }
 
 function bindEvents() {
+  if (ui.mobileWarningDismiss) ui.mobileWarningDismiss.addEventListener("click", dismissMobileWarning);
   if (ui.titleInput) ui.titleInput.addEventListener("input", handleTitleInput);
   if (ui.prevMonth) ui.prevMonth.addEventListener("click", handlePrevMonth);
   if (ui.nextMonth) ui.nextMonth.addEventListener("click", handleNextMonth);
@@ -1034,6 +1367,16 @@ function bindEvents() {
   if (ui.jsonCopy) ui.jsonCopy.addEventListener("click", handleCopyJson);
   if (ui.jsonCopyHash) ui.jsonCopyHash.addEventListener("click", handleCopyHash);
   if (ui.jsonDownload) ui.jsonDownload.addEventListener("click", handleExportJson);
+  if (ui.tzAddBtn) ui.tzAddBtn.addEventListener("click", openTzModal);
+  if (ui.tzClose) ui.tzClose.addEventListener("click", closeTzModal);
+  if (ui.tzSearch) ui.tzSearch.addEventListener("input", handleTzSearch);
+  if (ui.tzResults) ui.tzResults.addEventListener("click", handleTzResultsClick);
+  if (ui.tzList) ui.tzList.addEventListener("click", handleTzListClick);
+  if (ui.tzModal) {
+    ui.tzModal.addEventListener("click", (event) => {
+      if (event.target === ui.tzModal) closeTzModal();
+    });
+  }
 
   window.addEventListener("hashchange", handleHashChange);
   window.addEventListener("resize", syncTopbarHeight);
@@ -1053,14 +1396,16 @@ async function init() {
     onToggle: updateFocusButton,
   });
   bindEvents();
+  initMobileWarning();
   await loadStateFromHash();
-  if (!isEncryptedHash() && !state.e.length && window.location.hash) {
+  if (!isEncryptedHash() && !hasStoredData() && window.location.hash) {
     clearHash();
   }
 
   updateViewButtons();
   updateFocusButton(false);
   render();
+  initTimezones();
 
   if (isEncryptedHash() && !lockState.unlocked) {
     attemptUnlock();

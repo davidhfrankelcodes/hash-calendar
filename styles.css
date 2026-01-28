@@ -325,10 +325,12 @@ button:disabled {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 280px minmax(0, 1fr) 260px;
+  grid-template-areas: "side calendar tz";
 }
 
 .side-panel {
+  grid-area: side;
   order: -1;
   background: var(--panel);
   border-right: 1px solid var(--border);
@@ -340,10 +342,147 @@ button:disabled {
 }
 
 .calendar-panel {
+  grid-area: calendar;
   background: var(--panel);
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
+}
+
+.tz-sidebar {
+  grid-area: tz;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.tz-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tz-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.tz-subtitle {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.tz-add {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.tz-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.tz-card {
+  background: var(--panel-2);
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tz-card.is-local {
+  border-left-color: var(--accent);
+}
+
+.tz-name {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tz-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tz-offset {
+  color: var(--muted);
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tz-time {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tz-diff {
+  color: var(--danger);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.tz-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.tz-card:hover .tz-remove {
+  opacity: 1;
+}
+
+.tz-remove:focus-visible {
+  opacity: 1;
+}
+
+.tz-remove:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+.tz-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .panel-header {
@@ -928,6 +1067,78 @@ button:disabled {
   z-index: 20;
 }
 
+.tz-modal {
+  border: none;
+  padding: 0;
+  background: transparent;
+  margin: auto;
+}
+
+.tz-modal::backdrop {
+  background: rgba(32, 33, 36, 0.6);
+}
+
+.tz-modal-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  width: min(420px, 92vw);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tz-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tz-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tz-result-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: var(--panel-2);
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.tz-result-btn:hover {
+  border-color: var(--border);
+}
+
+.tz-result-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tz-result-offset {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .modal.hidden {
   display: none;
 }
@@ -1135,6 +1346,45 @@ button:disabled {
   box-shadow: var(--shadow-md);
 }
 
+.mobile-warning {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(32, 33, 36, 0.45);
+  z-index: 40;
+}
+
+.mobile-warning-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(520px, 92vw);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 12px 14px;
+}
+
+.mobile-warning-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobile-warning-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.mobile-warning-text {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 .toast-container {
   position: fixed;
   bottom: 24px;
@@ -1170,6 +1420,10 @@ button:disabled {
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "calendar"
+      "side"
+      "tz";
   }
 
   .side-panel {
@@ -1182,6 +1436,11 @@ button:disabled {
 
   .side-card {
     flex: 1 1 280px;
+  }
+
+  .tz-sidebar {
+    border-left: none;
+    border-top: 1px solid var(--border);
   }
 }
 
@@ -1257,5 +1516,20 @@ button:disabled {
 
   .agenda-time {
     font-size: 0.68rem;
+  }
+
+  .mobile-warning-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mobile-warning-card button {
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 1024px) {
+  .mobile-warning {
+    display: flex;
   }
 }

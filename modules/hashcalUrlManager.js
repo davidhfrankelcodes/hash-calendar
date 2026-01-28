@@ -50,6 +50,10 @@ function compactState(state) {
     }
   }
 
+  if (Array.isArray(state.timezones) && state.timezones.length) {
+    out.z = state.timezones;
+  }
+
   return out;
 }
 

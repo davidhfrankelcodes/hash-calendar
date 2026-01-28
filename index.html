@@ -61,6 +61,15 @@
 </head>
 
 <body>
+  <div id="mobile-warning" class="mobile-warning hidden" role="status" aria-live="polite">
+    <div class="mobile-warning-card">
+      <div class="mobile-warning-copy">
+        <span class="mobile-warning-title">Mobile view notice</span>
+        <span class="mobile-warning-text">This app isn't optimized for mobile and tab view yet.</span>
+      </div>
+      <button id="mobile-warning-dismiss" type="button" class="ghost">Got it</button>
+    </div>
+  </div>
   <div class="app">
     <header class="topbar">
       <div class="brand">
@@ -153,6 +162,17 @@
           <h4 class="side-title">Danger zone</h4>
           <button id="clear-all" type="button" class="danger-btn">Clear calendar</button>
         </div>
+      </aside>
+
+      <aside id="timezone-ruler" class="tz-sidebar">
+        <div class="tz-header">
+          <div>
+            <h4 class="tz-title">World Clock</h4>
+            <p class="tz-subtitle">Local time plus saved zones</p>
+          </div>
+          <button id="add-tz-btn" type="button" class="icon-btn tz-add" aria-label="Add timezone">+</button>
+        </div>
+        <div id="tz-list" class="tz-list" aria-live="polite"></div>
       </aside>
     </main>
   </div>
@@ -306,6 +326,21 @@
       </div>
     </div>
   </div>
+
+  <dialog id="tz-modal" class="tz-modal" aria-labelledby="tz-modal-title">
+    <div class="tz-modal-card">
+      <header class="tz-modal-header">
+        <h3 id="tz-modal-title">Select timezone</h3>
+        <button id="close-tz-modal" type="button" class="icon-btn" aria-label="Close">x</button>
+      </header>
+      <label class="field">
+        <span>Search</span>
+        <input type="text" id="tz-search" placeholder="Search (e.g. London)" autocomplete="off">
+      </label>
+      <ul id="tz-results" class="tz-results" role="listbox"></ul>
+      <p id="tz-empty" class="tz-empty hidden">No matches yet. Try a city, region, or UTC+5:30.</p>
+    </div>
+  </dialog>
 
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
