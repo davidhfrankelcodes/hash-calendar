@@ -4,10 +4,11 @@ FROM node:18-alpine AS base
 WORKDIR /app
 
 # Copy only the necessary files for serving
-COPY index.html gallery.html styles.css gallery.css script.js templates.json ./
+COPY index.html styles.css script.js planner_logic.js sw.js manifest.json ./
 COPY modules/ ./modules/
 COPY demo/ ./demo/
-COPY favicon.png logo.png ./
+COPY logo.png favicon.ico apple-touch-icon.png ./
+COPY robots.txt sitemap.xml sitemap.txt ./
 
 # Use a lightweight web server to serve static files
 FROM caddy:2-alpine
