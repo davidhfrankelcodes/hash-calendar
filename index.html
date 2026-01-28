@@ -1,22 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-77V3TP2B5T"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    // Security: Exclude URL hash from analytics to prevent leaking spreadsheet data
+    gtag('config', 'G-77V3TP2B5T', {
+      'page_location': window.location.origin + window.location.pathname,
+      'page_path': window.location.pathname
+    });
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>hash-calendar - private, URL-powered calendar</title>
-  <meta name="description" content="hash-calendar is a privacy-first, URL-powered calendar. Create events, share instantly, and keep data in your browser - no accounts or backend.">
+  <meta name="description"
+    content="hash-calendar is a privacy-first, URL-powered calendar. Create events, share instantly, and keep data in your browser - no accounts or backend.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://hash-calendar.netlify.app/">
   <meta property="og:site_name" content="hash-calendar">
   <meta property="og:title" content="hash-calendar - private, URL-powered calendar">
-  <meta property="og:description" content="Privacy-first calendar that lives in your URL. Create events, share instantly, and keep data in your browser - no accounts or backend.">
+  <meta property="og:description"
+    content="Privacy-first calendar that lives in your URL. Create events, share instantly, and keep data in your browser - no accounts or backend.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hash-calendar.netlify.app/">
   <meta property="og:image" content="https://hash-calendar.netlify.app/logo.png">
   <meta property="og:image:alt" content="hash-calendar logo">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="hash-calendar - private, URL-powered calendar">
-  <meta name="twitter:description" content="Privacy-first calendar that lives in your URL. Create events, share instantly, and keep data in your browser - no accounts or backend.">
+  <meta name="twitter:description"
+    content="Privacy-first calendar that lives in your URL. Create events, share instantly, and keep data in your browser - no accounts or backend.">
   <meta name="twitter:image" content="https://hash-calendar.netlify.app/logo.png">
   <meta name="twitter:image:alt" content="hash-calendar logo">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
@@ -24,7 +40,9 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Space+Grotesk:wght@400;500;600&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="styles.css">
   <script type="application/ld+json">
@@ -41,13 +59,15 @@
     }
   </script>
 </head>
+
 <body>
   <div class="app">
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark">#</div>
         <div class="brand-text">
-          <input id="calendar-title" class="title-input" type="text" maxlength="60" value="hash-calendar" aria-label="Calendar title">
+          <input id="calendar-title" class="title-input" type="text" maxlength="60" value="hash-calendar"
+            aria-label="Calendar title">
           <span class="brand-subtitle">Serverless privacy calendar. Your URL is the save file.</span>
         </div>
       </div>
@@ -62,6 +82,7 @@
           <button type="button" data-view="week" role="tab" aria-selected="false">Week</button>
           <button type="button" data-view="month" role="tab" aria-selected="true">Month</button>
           <button type="button" data-view="year" role="tab" aria-selected="false">Year</button>
+          <button type="button" data-view="agenda" role="tab" aria-selected="false">Agenda</button>
         </div>
         <button id="focus-btn" type="button" class="ghost">Focus</button>
         <button id="add-event" type="button" class="primary">Add event</button>
@@ -283,4 +304,5 @@
   <script src="modules/lz-string.min.js"></script>
   <script type="module" src="script.js"></script>
 </body>
+
 </html>

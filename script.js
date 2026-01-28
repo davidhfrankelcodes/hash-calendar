@@ -1,5 +1,6 @@
 import { readStateFromHash, writeStateToHash, isEncryptedHash, clearHash } from "./modules/hashcalUrlManager.js";
 import { expandEvents } from "./modules/recurrenceEngine.js";
+import { renderAgendaView } from "./modules/agendaRender.js";
 import { FocusMode } from "./modules/focusMode.js";
 import { initQRCodeManager } from "./modules/qrCodeManager.js";
 import {
@@ -14,6 +15,8 @@ import {
 import { parseIcs } from "./modules/icsImporter.js";
 
 const DEFAULT_COLORS = ["#ff6b6b", "#ffd43b", "#4dabf7", "#63e6be", "#9775fa"];
+const DEFAULT_VIEW = "month";
+const VALID_VIEWS = new Set(["day", "week", "month", "year", "agenda"]);
 const DEFAULT_STATE = {
   t: "hash-calendar",
   c: DEFAULT_COLORS,
@@ -21,6 +24,7 @@ const DEFAULT_STATE = {
   s: {
     d: 0,
     m: 0,
+    v: DEFAULT_VIEW,
   },
 };
 
@@ -30,7 +34,7 @@ const MAX_TITLE_LENGTH = 60;
 let state = cloneState(DEFAULT_STATE);
 let viewDate = startOfDay(new Date());
 let selectedDate = startOfDay(new Date());
-let currentView = "month";
+let currentView = DEFAULT_VIEW;
 let password = null;
 let lockState = { encrypted: false, unlocked: true };
 let saveTimer = null;
@@ -97,6 +101,17 @@ function formatTime(date) {
   return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
+function getStoredView(view) {
+  return VALID_VIEWS.has(view) ? view : DEFAULT_VIEW;
+}
+
+function applyStoredView() {
+  const stored = state && state.s ? state.s.v : null;
+  currentView = getStoredView(stored);
+  if (state && state.s) state.s.v = currentView;
+  updateViewButtons();
+}
+
 function normalizeState(raw) {
   const next = cloneState(DEFAULT_STATE);
   if (!raw || typeof raw !== "object") return next;
@@ -139,6 +154,7 @@ function normalizeState(raw) {
   if (raw.s && typeof raw.s === "object") {
     next.s.d = raw.s.d ? 1 : 0;
     next.s.m = raw.s.m ? 1 : 0;
+    next.s.v = getStoredView(raw.s.v);
   }
 
   return next;
@@ -295,10 +311,13 @@ function updateViewButtons() {
 }
 
 function setView(view) {
-  if (!view) return;
+  if (!VALID_VIEWS.has(view)) return;
+  if (currentView === view) return;
   currentView = view;
+  if (state && state.s) state.s.v = view;
   updateViewButtons();
   render();
+  persistStateToHash();
 }
 
 function updateLockUI() {
@@ -355,7 +374,7 @@ function render() {
     ui.calendarGrid.style.gridTemplateRows = "";
   }
   if (ui.weekdayRow) {
-    ui.weekdayRow.classList.toggle("hidden", currentView === "year");
+    ui.weekdayRow.classList.toggle("hidden", currentView === "year" || currentView === "agenda");
   }
 
   if (currentView === "month") {
@@ -412,6 +431,18 @@ function render() {
         onSelectDay: handleSelectDay,
         onEventClick: (event) => openEventModal({ index: event.sourceIndex }),
       });
+    }
+  } else if (currentView === "agenda") {
+    const agendaData = renderAgendaView({
+      events: state.e,
+      colors: state.c,
+      container: ui.calendarGrid,
+      rangeMonths: 6,
+      onEventClick: (event) => openEventModal({ index: event.sourceIndex }),
+    });
+    occurrencesByDay = agendaData && agendaData.occurrencesByDay ? agendaData.occurrencesByDay : new Map();
+    if (ui.monthLabel && agendaData && agendaData.range) {
+      ui.monthLabel.textContent = `Agenda · ${formatRangeLabel(agendaData.range.start, agendaData.range.end)}`;
     }
   } else if (currentView === "year") {
     const year = viewDate.getFullYear();
@@ -723,6 +754,7 @@ async function attemptUnlock() {
     password = value;
     lockState = { encrypted: true, unlocked: true };
     state = normalizeState(loaded);
+    applyStoredView();
     render();
     showToast("Calendar unlocked", "success");
   } catch (error) {
@@ -735,12 +767,14 @@ async function attemptUnlock() {
 async function loadStateFromHash() {
   if (!window.location.hash) {
     state = cloneState(DEFAULT_STATE);
+    applyStoredView();
     return;
   }
 
   if (isEncryptedHash()) {
     lockState = { encrypted: true, unlocked: false };
     state = cloneState(DEFAULT_STATE);
+    applyStoredView();
     updateLockUI();
     return;
   }
@@ -751,6 +785,7 @@ async function loadStateFromHash() {
   } catch (error) {
     state = cloneState(DEFAULT_STATE);
   }
+  applyStoredView();
 }
 
 function handleHashChange() {
