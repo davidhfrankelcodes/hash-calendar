@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HashCal</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">#</div>
+        <div class="brand-text">
+          <input id="calendar-title" class="title-input" type="text" maxlength="60" value="HashCal" aria-label="Calendar title">
+          <span class="brand-subtitle">Serverless privacy calendar. Your URL is the save file.</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <div class="nav-group">
+          <button id="prev-month" type="button" aria-label="Previous month">Prev</button>
+          <button id="today-btn" type="button">Today</button>
+          <button id="next-month" type="button" aria-label="Next month">Next</button>
+        </div>
+        <div class="view-toggle" role="tablist" aria-label="Calendar view">
+          <button type="button" data-view="day" role="tab" aria-selected="false">Day</button>
+          <button type="button" data-view="week" role="tab" aria-selected="false">Week</button>
+          <button type="button" data-view="month" role="tab" aria-selected="true">Month</button>
+          <button type="button" data-view="year" role="tab" aria-selected="false">Year</button>
+        </div>
+        <button id="add-event" type="button" class="primary">Add event</button>
+        <button id="copy-link" type="button">Copy link</button>
+        <button id="lock-btn" type="button">Lock</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="calendar-panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="month-label" class="month-label">Month 2026</h2>
+            <div class="panel-actions">
+              <button id="weekstart-toggle" type="button" class="ghost">Week starts Sunday</button>
+              <button id="theme-toggle" type="button" class="ghost">Theme: Light</button>
+            </div>
+          </div>
+        </div>
+        <div id="weekday-row" class="weekday-row"></div>
+        <div id="calendar-grid" class="calendar-grid" role="grid" aria-label="Calendar"></div>
+        <div id="locked-overlay" class="locked-overlay hidden">
+          <div class="locked-card">
+            <h3>Encrypted calendar</h3>
+            <p>Enter the password to unlock and edit this calendar.</p>
+            <button id="unlock-btn" type="button" class="primary">Unlock</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-panel">
+        <div class="side-card">
+          <h3 id="selected-date-label" class="side-title">Selected day</h3>
+          <div id="event-list" class="event-list"></div>
+          <button id="add-event-inline" type="button" class="ghost">Add event for this day</button>
+        </div>
+
+        <div class="side-card">
+          <h4 class="side-title">Share and export</h4>
+          <div class="status-row">
+            <span>URL length</span>
+            <strong id="url-length">0</strong>
+          </div>
+          <p id="url-warning" class="url-warning"></p>
+          <div class="stacked-actions">
+            <button id="export-json" type="button" class="ghost">Export JSON</button>
+            <button id="import-ics" type="button" class="ghost">Import .ics</button>
+            <input id="ics-input" type="file" accept=".ics,text/calendar" hidden>
+          </div>
+        </div>
+
+        <div class="side-card danger">
+          <h4 class="side-title">Danger zone</h4>
+          <button id="clear-all" type="button" class="danger-btn">Clear calendar</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div id="event-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <header class="modal-header">
+        <h3 id="event-modal-title">Add event</h3>
+        <button id="event-close" type="button" class="icon-btn" aria-label="Close">x</button>
+      </header>
+      <form id="event-form" class="modal-form">
+        <label class="field">
+          <span>Title</span>
+          <input id="event-title" type="text" maxlength="80" required>
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Date</span>
+            <input id="event-date" type="date" required>
+          </label>
+          <label class="field">
+            <span>Start</span>
+            <input id="event-time" type="time">
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span>Duration (mins)</span>
+            <input id="event-duration" type="number" min="0" step="5" value="60">
+          </label>
+          <label class="field checkbox-field">
+            <input id="event-all-day" type="checkbox">
+            <span>All day</span>
+          </label>
+        </div>
+        <label class="field">
+          <span>Recurrence</span>
+          <select id="event-recurrence">
+            <option value="">None</option>
+            <option value="d">Daily</option>
+            <option value="w">Weekly</option>
+            <option value="m">Monthly</option>
+            <option value="y">Yearly</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Color</span>
+          <input id="event-color" type="color" value="#ff6b6b">
+        </label>
+        <div id="color-palette" class="color-palette"></div>
+        <div class="modal-actions">
+          <button id="event-delete" type="button" class="ghost danger hidden">Delete</button>
+          <div class="modal-actions-right">
+            <button id="event-cancel" type="button" class="ghost">Cancel</button>
+            <button id="event-save" type="submit" class="primary">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="password-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="password-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <header class="modal-header">
+        <h3 id="password-title">Unlock calendar</h3>
+        <button id="password-close" type="button" class="icon-btn" aria-label="Close">x</button>
+      </header>
+      <div class="modal-form">
+        <p id="password-desc" class="modal-note"></p>
+        <label class="field">
+          <span>Password</span>
+          <input id="password-input" type="password" autocomplete="new-password">
+        </label>
+        <label id="password-confirm-field" class="field hidden">
+          <span>Confirm password</span>
+          <input id="password-confirm" type="password" autocomplete="new-password">
+        </label>
+        <p id="password-error" class="modal-error hidden"></p>
+        <div class="modal-actions">
+          <button id="password-cancel" type="button" class="ghost">Cancel</button>
+          <button id="password-submit" type="button" class="primary">Unlock</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="modules/lz-string.min.js"></script>
+  <script type="module" src="script.js"></script>
+</body>
+</html>
