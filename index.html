@@ -86,22 +86,34 @@
           <button id="today-btn" type="button">Today</button>
           <button id="next-month" type="button" aria-label="Next month">Next</button>
         </div>
-        <div class="view-toggle" role="tablist" aria-label="Calendar view">
-          <button type="button" data-view="day" role="tab" aria-selected="false">Day</button>
-          <button type="button" data-view="week" role="tab" aria-selected="false">Week</button>
-          <button type="button" data-view="month" role="tab" aria-selected="true">Month</button>
-          <button type="button" data-view="year" role="tab" aria-selected="false">Year</button>
-          <button type="button" data-view="agenda" role="tab" aria-selected="false">Agenda</button>
+
+        <div id="mobile-menu-toggle" class="mobile-only">
+          <button id="hamburger-btn" type="button" aria-label="Menu" class="icon-btn">
+            <i class="fa-solid fa-bars"></i>
+          </button>
         </div>
-        <button id="focus-btn" type="button" class="ghost">Focus</button>
-        <button id="add-event" type="button" class="primary">Add event</button>
-        <button id="copy-link" type="button">Copy link</button>
-        <button id="share-qr" type="button">Share QR</button>
-        <button id="lock-btn" type="button">Lock</button>
-        <a class="action-link" href="https://github.com/supunlakmal/hash-calendar" target="_blank" rel="noreferrer">
-          <i class="fa-brands fa-github" aria-hidden="true"></i>
-          <span>GitHub</span>
-        </a>
+
+        <div id="secondary-actions" class="secondary-actions">
+          <div class="view-toggle" role="tablist">
+            <button data-view="day" role="tab" aria-selected="false">Day</button>
+            <button data-view="week" role="tab" aria-selected="false">Week</button>
+            <button data-view="month" role="tab" aria-selected="true" class="active">Month</button>
+            <button data-view="year" role="tab" aria-selected="false">Year</button>
+            <button data-view="agenda" role="tab" aria-selected="false">Agenda</button>
+          </div>
+          <button id="focus-btn" type="button">Focus</button>
+
+          <div class="action-divider desktop-only"></div>
+
+          <button id="add-event" class="primary" type="button">Add event</button>
+          <button id="copy-link" type="button">Copy link</button>
+          <button id="share-qr" type="button">Share QR</button>
+          <button id="lock-btn" type="button">Lock</button>
+          <a class="action-link" href="https://github.com/supunlakmal/hash-calendar" target="_blank" rel="noreferrer">
+            <i class="fa-brands fa-github" aria-hidden="true"></i>
+            <span>GitHub</span>
+          </a>
+        </div>
       </div>
     </header>
 
@@ -120,8 +132,12 @@
           <div>
             <h2 id="month-label" class="month-label">Month 2026</h2>
             <div class="panel-actions">
-              <button id="weekstart-toggle" type="button" class="ghost">Week starts Sunday</button>
-              <button id="theme-toggle" type="button" class="ghost">Theme: Light</button>
+              <button id="mobile-sidebar-toggle" class="mobile-only" type="button">
+                <i class="fa-solid fa-list-ul"></i>
+                <span>Details</span>
+              </button>
+              <button id="weekstart-toggle" type="button">Week starts Sunday</button>
+              <button id="theme-toggle" type="button">Theme: Light</button>
             </div>
           </div>
         </div>
@@ -137,6 +153,9 @@
       </section>
 
       <aside class="side-panel">
+        <button id="side-panel-close" class="side-close mobile-only" type="button" aria-label="Close details">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
         <div class="side-card">
           <h3 id="selected-date-label" class="side-title">Selected day</h3>
           <div id="event-list" class="event-list"></div>
@@ -165,6 +184,9 @@
       </aside>
 
       <aside id="timezone-ruler" class="tz-sidebar">
+        <button id="tz-sidebar-close" class="side-close mobile-only" type="button" aria-label="Close clock">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
         <div class="tz-header">
           <div>
             <h4 class="tz-title">World Clock</h4>
