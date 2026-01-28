@@ -14,6 +14,10 @@
   --accent-strong: #0b57d0;
   --danger: #d93025;
   --danger-ink: #ffffff;
+  --focus-good: #34a853;
+  --focus-warn: #f9ab00;
+  --focus-urgent: #ea4335;
+  --focus-neutral: var(--text);
   --shadow-sm: 0 1px 2px rgba(60, 64, 67, 0.12);
   --shadow-md: 0 2px 8px rgba(60, 64, 67, 0.16);
 }
@@ -32,6 +36,10 @@ body[data-theme="dark"] {
   --accent-strong: #a8c7fa;
   --danger: #f28b82;
   --danger-ink: #1f1f1f;
+  --focus-good: #6dd58c;
+  --focus-warn: #f5c45d;
+  --focus-urgent: #ff8a80;
+  --focus-neutral: var(--text);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
@@ -581,6 +589,173 @@ button:disabled {
   gap: 8px;
 }
 
+.focus-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: clamp(20px, 4vw, 48px);
+  background:
+    radial-gradient(circle at top left, var(--accent-soft), transparent 45%),
+    radial-gradient(circle at bottom right, rgba(0, 0, 0, 0.08), transparent 40%),
+    var(--bg);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.focus-overlay.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.focus-overlay[data-tone="good"] .focus-timer,
+.focus-overlay[data-tone="good"] .focus-status {
+  color: var(--focus-good);
+}
+
+.focus-overlay[data-tone="warn"] .focus-timer,
+.focus-overlay[data-tone="warn"] .focus-status {
+  color: var(--focus-warn);
+}
+
+.focus-overlay[data-tone="urgent"] .focus-timer,
+.focus-overlay[data-tone="urgent"] .focus-status {
+  color: var(--focus-urgent);
+}
+
+.focus-overlay[data-tone="neutral"] .focus-timer {
+  color: var(--focus-neutral);
+}
+
+.focus-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: clamp(24px, 5vw, 56px);
+  border-radius: 28px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.focus-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.focus-exit {
+  border-color: var(--border-soft);
+  background: var(--panel-2);
+}
+
+.focus-clock {
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+}
+
+.focus-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 18px;
+}
+
+.focus-status {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.35em;
+  color: var(--muted);
+}
+
+.focus-timer {
+  font-family: "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace;
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 700;
+  color: var(--focus-neutral);
+  letter-spacing: 0.08em;
+}
+
+.focus-title {
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 600;
+}
+
+.focus-event {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.focus-time {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.focus-upnext {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.focus-upnext-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  color: var(--muted);
+}
+
+.focus-upnext-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.focus-upnext-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  font-size: 0.9rem;
+}
+
+.focus-upnext-time {
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.focus-upnext-title {
+  font-weight: 600;
+  text-align: right;
+}
+
 .modal {
   position: fixed;
   inset: 0;
@@ -817,5 +992,29 @@ button:disabled {
 
   .field-row {
     grid-template-columns: 1fr;
+  }
+
+  .focus-shell {
+    padding: 24px;
+    border-radius: 20px;
+  }
+
+  .focus-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .focus-upnext {
+    align-self: stretch;
+  }
+
+  .focus-upnext-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .focus-upnext-title {
+    text-align: left;
   }
 }

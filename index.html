@@ -63,6 +63,7 @@
           <button type="button" data-view="month" role="tab" aria-selected="true">Month</button>
           <button type="button" data-view="year" role="tab" aria-selected="false">Year</button>
         </div>
+        <button id="focus-btn" type="button" class="ghost">Focus</button>
         <button id="add-event" type="button" class="primary">Add event</button>
         <button id="copy-link" type="button">Copy link</button>
         <button id="lock-btn" type="button">Lock</button>
@@ -123,6 +124,27 @@
         </div>
       </aside>
     </main>
+  </div>
+
+  <div id="focus-overlay" class="focus-overlay" aria-hidden="true">
+    <div class="focus-shell">
+      <div class="focus-header">
+        <button id="focus-exit" type="button" class="icon-btn focus-exit" aria-label="Exit focus mode">x</button>
+        <div id="focus-clock" class="focus-clock">00:00</div>
+      </div>
+      <div class="focus-main">
+        <div id="focus-status" class="focus-status">NEXT UP IN</div>
+        <div id="focus-timer" class="focus-timer">00:00:00</div>
+        <div class="focus-event">
+          <div id="focus-title" class="focus-title">No upcoming events</div>
+          <div id="focus-time" class="focus-time"></div>
+        </div>
+      </div>
+      <div id="focus-upnext" class="focus-upnext hidden">
+        <div class="focus-upnext-label">Up later</div>
+        <ul id="focus-upnext-list" class="focus-upnext-list"></ul>
+      </div>
+    </div>
   </div>
 
   <div id="event-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">

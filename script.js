@@ -1,5 +1,6 @@
 import { readStateFromHash, writeStateToHash, isEncryptedHash, clearHash } from "./modules/hashcalUrlManager.js";
 import { expandEvents } from "./modules/recurrenceEngine.js";
+import { FocusMode } from "./modules/focusMode.js";
 import {
   formatDateKey,
   getMonthGridRange,
@@ -36,6 +37,7 @@ let occurrencesByDay = new Map();
 let editingIndex = null;
 let passwordResolver = null;
 let passwordMode = "unlock";
+let focusMode = null;
 
 const ui = {};
 
@@ -148,6 +150,7 @@ function cacheElements() {
   ui.addEventBtn = document.getElementById("add-event");
   ui.copyLinkBtn = document.getElementById("copy-link");
   ui.lockBtn = document.getElementById("lock-btn");
+  ui.focusBtn = document.getElementById("focus-btn");
   ui.viewButtons = Array.from(document.querySelectorAll(".view-toggle button"));
   ui.weekstartToggle = document.getElementById("weekstart-toggle");
   ui.themeToggle = document.getElementById("theme-toggle");
@@ -253,6 +256,13 @@ function updateTheme() {
 function updateWeekStartLabel() {
   if (!ui.weekstartToggle) return;
   ui.weekstartToggle.textContent = state.s.m ? "Week starts Monday" : "Week starts Sunday";
+}
+
+function updateFocusButton(isActive) {
+  if (!ui.focusBtn) return;
+  const active = typeof isActive === "boolean" ? isActive : focusMode && focusMode.isActive();
+  ui.focusBtn.textContent = active ? "Exit focus" : "Focus";
+  ui.focusBtn.setAttribute("aria-pressed", active ? "true" : "false");
 }
 
 function updateViewButtons() {
@@ -784,6 +794,15 @@ async function handleCopyLink() {
   }
 }
 
+function handleFocusToggle() {
+  if (!focusMode) return;
+  if (focusMode.isActive()) {
+    focusMode.stop();
+  } else {
+    focusMode.start();
+  }
+}
+
 function updateJsonModal() {
   if (ui.jsonOutput) {
     ui.jsonOutput.value = JSON.stringify(state, null, 2);
@@ -894,6 +913,7 @@ function bindEvents() {
   if (ui.addEventInline) ui.addEventInline.addEventListener("click", () => openEventModal({ date: selectedDate }));
   if (ui.copyLinkBtn) ui.copyLinkBtn.addEventListener("click", handleCopyLink);
   if (ui.lockBtn) ui.lockBtn.addEventListener("click", handleLockAction);
+  if (ui.focusBtn) ui.focusBtn.addEventListener("click", handleFocusToggle);
   if (ui.weekstartToggle) ui.weekstartToggle.addEventListener("click", handleWeekStartToggle);
   if (ui.themeToggle) ui.themeToggle.addEventListener("click", handleThemeToggle);
   if (ui.unlockBtn) ui.unlockBtn.addEventListener("click", attemptUnlock);
@@ -922,6 +942,11 @@ function bindEvents() {
 
 async function init() {
   cacheElements();
+  focusMode = new FocusMode({
+    getState: () => state,
+    fallbackColors: DEFAULT_COLORS,
+    onToggle: updateFocusButton,
+  });
   bindEvents();
   await loadStateFromHash();
   if (!isEncryptedHash() && !state.e.length && window.location.hash) {
@@ -929,6 +954,7 @@ async function init() {
   }
 
   updateViewButtons();
+  updateFocusButton(false);
   render();
 
   if (isEncryptedHash() && !lockState.unlocked) {
