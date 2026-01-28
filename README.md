@@ -1,6 +1,9 @@
 # hash-calendar
 
-HashCal is a lightweight, client-only calendar. Your calendar state lives entirely in the URL hash, so sharing is as simple as copying the link. No backend, no accounts.
+hash-calendar is a lightweight, client-only calendar. Your calendar state lives entirely in the URL hash, so sharing is as simple as copying the link. No backend, no accounts.
+
+Live site: https://hash-calendar.netlify.app/
+GitHub: https://github.com/supunlakmal/hash-calendar
 
 ## Features
 

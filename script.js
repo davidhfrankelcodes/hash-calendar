@@ -13,7 +13,7 @@ import { parseIcs } from "./modules/icsImporter.js";
 
 const DEFAULT_COLORS = ["#ff6b6b", "#ffd43b", "#4dabf7", "#63e6be", "#9775fa"];
 const DEFAULT_STATE = {
-  t: "HashCal",
+  t: "hash-calendar",
   c: DEFAULT_COLORS,
   e: [],
   s: {
