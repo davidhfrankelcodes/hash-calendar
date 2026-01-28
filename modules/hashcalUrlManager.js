@@ -54,6 +54,16 @@ function compactState(state) {
     out.z = state.timezones;
   }
 
+  if (state.mp) {
+    const mp = state.mp;
+    const mini = {};
+    if (mp.home) mini.h = mp.home;
+    if (mp.zones && mp.zones.length) mini.z = mp.zones;
+    if (mp.sel) mini.s = mp.sel;
+    if (mp.date) mini.d = mp.date;
+    if (Object.keys(mini).length) out.mp = mini;
+  }
+
   return out;
 }
 

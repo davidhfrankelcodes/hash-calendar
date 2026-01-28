@@ -15,6 +15,7 @@ import {
   renderYearView,
 } from "./modules/calendarRender.js";
 import { parseIcs } from "./modules/icsImporter.js";
+import { AppLauncher } from "./modules/app_launcher.js";
 
 const DEFAULT_COLORS = ["#ff6b6b", "#ffd43b", "#4dabf7", "#63e6be", "#9775fa"];
 const DEFAULT_VIEW = "month";
@@ -29,6 +30,7 @@ const DEFAULT_STATE = {
     v: DEFAULT_VIEW,
   },
   timezones: [],
+  mp: { h: null, z: [], s: null, d: null },
 };
 
 const DEBOUNCE_MS = 500;
@@ -185,6 +187,17 @@ function normalizeState(raw) {
     next.timezones = normalizeTimezones(zones);
   }
 
+  if (raw.mp && typeof raw.mp === "object") {
+    next.mp = {
+      h: typeof raw.mp.h === "string" ? raw.mp.h : null,
+      z: Array.isArray(raw.mp.z) ? normalizeTimezones(raw.mp.z) : [],
+      s: Number(raw.mp.s) || null,
+      d: typeof raw.mp.d === "string" ? raw.mp.d : null,
+    };
+  } else {
+    next.mp = cloneState(DEFAULT_STATE.mp);
+  }
+
   return next;
 }
 
@@ -272,6 +285,15 @@ function cacheElements() {
   ui.tzSidebar = document.getElementById("timezone-ruler");
   ui.sidePanelClose = document.getElementById("side-panel-close");
   ui.tzSidebarClose = document.getElementById("tz-sidebar-close");
+  
+  // World Planner
+  ui.worldPlannerBtn = document.getElementById("world-planner-btn");
+  ui.worldPlannerModal = document.getElementById("world-planner-modal");
+  ui.wpClose = document.getElementById("wp-close");
+  ui.wpAddZone = document.getElementById("wp-add-zone");
+  ui.wpGrid = document.getElementById("wp-grid");
+  ui.wpDatePicker = document.getElementById("wp-date-picker");
+  ui.wpCopyLink = document.getElementById("wp-copy-link");
 }
 
 function showToast(message, type = "info") {
@@ -1472,6 +1494,8 @@ async function init() {
   updateFocusButton(false);
   render();
   initTimezones();
+  initWorldPlanner();
+  new AppLauncher();
 
   if (isEncryptedHash() && !lockState.unlocked) {
     attemptUnlock();
@@ -1483,3 +1507,424 @@ if (document.readyState === "loading") {
 } else {
   init();
 }
+
+/* --- World Planner Logic --- */
+
+function initWorldPlanner() {
+  if (ui.worldPlannerBtn) {
+    ui.worldPlannerBtn.addEventListener("click", openWorldPlanner);
+  }
+  if (ui.wpClose) {
+    ui.wpClose.addEventListener("click", closeWorldPlanner);
+  }
+  if (ui.wpAddZone) {
+    ui.wpAddZone.addEventListener("input", handleWpTzInput);
+    ui.wpAddZone.addEventListener("keydown", (e) => {
+      // Focus navigation for results? For now simple
+    });
+  }
+  
+  if (!ui.wpFormatToggle) {
+     ui.wpFormatToggle = document.getElementById("wp-format-toggle");
+     if (ui.wpFormatToggle) ui.wpFormatToggle.addEventListener("click", togglePlannerFormat);
+  }
+
+  if (ui.wpGrid) {
+    ui.wpGrid.addEventListener("mousemove", handleScrubberMove);
+    ui.wpGrid.addEventListener("click", handleScrubberClick);
+    ui.wpGrid.addEventListener("click", handlePlannerGridClick);
+  }
+  if (ui.wpDatePicker) {
+    ui.wpDatePicker.addEventListener("change", (e) => {
+      if (!state.mp) state.mp = { h: null, z: [], s: null, d: null, f24: false };
+      state.mp.d = e.target.value;
+      scheduleSave();
+      renderWorldPlanner();
+    });
+  }
+  // Copy Link removed from UI
+}
+
+function openWorldPlanner() {
+  if (!ui.worldPlannerModal) return;
+  
+  // Initialize state if empty
+  if (!state.mp || (!state.mp.h && !state.mp.z.length)) {
+    const local = getLocalZone();
+    state.mp = {
+      h: local,
+      z: ["UTC", "America/New_York", "Asia/Tokyo", "Europe/London"].filter(z => z !== local).slice(0, 3),
+      s: null,
+      d: new Date().toISOString().split("T")[0],
+      f24: false // Default to 12h
+    };
+  }
+  
+  // Ensure f24 exists for legacy states
+  if (state.mp.f24 === undefined) state.mp.f24 = false;
+  
+  // Set date picker
+  if (ui.wpDatePicker) {
+    ui.wpDatePicker.value = state.mp.d || new Date().toISOString().split("T")[0];
+  }
+  
+  updatePlannerFormatBtn();
+
+  ui.worldPlannerModal.classList.remove("hidden");
+  renderWorldPlanner();
+}
+
+function closeWorldPlanner() {
+  if (ui.worldPlannerModal) {
+    ui.worldPlannerModal.classList.add("hidden");
+  }
+  scheduleSave();
+}
+
+function handleWpTzInput(e) {
+  const term = e.target.value.trim().toLowerCase();
+  const list = document.getElementById("wp-tz-results");
+  if (!list) return;
+  
+  if (term.length < 2) {
+    list.innerHTML = "";
+    list.classList.add("hidden");
+    return;
+  }
+  
+  const offsetQuery = parseOffsetSearchTerm(term); // Reuse existing helper
+  const existing = new Set([state.mp.h, ...state.mp.z]);
+  
+  const matches = AVAILABLE_ZONES.filter((zone) => {
+    if (existing.has(zone)) return false;
+    const zoneLower = zone.toLowerCase();
+    if (zoneLower.includes(term)) return true;
+    
+    // Offset match reuse
+    if (offsetQuery) {
+        const zoneOffset = getZoneInfo(zone).offset;
+        const normalized = `${offsetQuery.hours}:${String(offsetQuery.minutes).padStart(2, "0")}`;
+        if (offsetQuery.hasMinutes) {
+          if (offsetQuery.sign) return zoneOffset === `${offsetQuery.sign}${normalized}`;
+          return zoneOffset === `+${normalized}` || zoneOffset === `-${normalized}`;
+        }
+        if (offsetQuery.sign) return zoneOffset.startsWith(`${offsetQuery.sign}${offsetQuery.hours}`);
+        return zoneOffset.startsWith(`+${offsetQuery.hours}`) || zoneOffset.startsWith(`-${offsetQuery.hours}`);
+    }
+    return false;
+  }).slice(0, 12);
+  
+  renderWpTzResults(matches);
+}
+
+function renderWpTzResults(results) {
+  const list = document.getElementById("wp-tz-results");
+  if (!list) return;
+  list.innerHTML = "";
+  
+  if (!results.length) {
+     list.classList.add("hidden");
+     return;
+  }
+  
+  results.forEach(zone => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tz-result-btn"; // Reuse existing style class
+    
+    const info = getZoneInfo(zone);
+    const name = document.createElement("span");
+    name.className = "tz-result-name";
+    name.textContent = zone;
+    
+    const offset = document.createElement("span");
+    offset.className = "tz-result-offset";
+    offset.textContent = `UTC${info.offset}`;
+    
+    button.append(name, offset);
+    
+    button.addEventListener("click", () => {
+        addPlannerZone(zone);
+        list.classList.add("hidden");
+        if (ui.wpAddZone) ui.wpAddZone.value = "";
+    });
+    
+    li.appendChild(button);
+    list.appendChild(li);
+  });
+  
+  list.classList.remove("hidden");
+}
+
+function addPlannerZone(zone) {
+  if (state.mp.h !== zone && !state.mp.z.includes(zone)) {
+      state.mp.z.push(zone);
+      scheduleSave();
+      renderWorldPlanner();
+  }
+}
+
+function handlePlannerGridClick(e) {
+  // Handle remove/promote buttons
+  const btn = e.target.closest(".wp-control-btn");
+  if (!btn) return;
+  
+  const action = btn.dataset.action;
+  const zone = btn.dataset.zone;
+  
+  if (action === "remove") {
+    state.mp.z = state.mp.z.filter(z => z !== zone);
+    scheduleSave();
+    renderWorldPlanner();
+  } else if (action === "promote") {
+    const oldHome = state.mp.h;
+    state.mp.h = zone;
+    state.mp.z = state.mp.z.filter(z => z !== zone);
+    if (oldHome) state.mp.z.unshift(oldHome);
+    scheduleSave();
+    renderWorldPlanner();
+  }
+}
+
+function getPlannerDate() {
+  return state.mp.d ? new Date(state.mp.d) : new Date();
+}
+
+function renderWorldPlanner() {
+  if (!ui.wpGrid) return;
+  
+  ui.wpGrid.innerHTML = "";
+  
+  // 1. Build City Column
+  const cityCol = document.createElement("div");
+  cityCol.className = "city-col";
+  
+  // Home Row
+  if (state.mp.h) {
+    cityCol.appendChild(createPlannerCityHeader(state.mp.h, true));
+  }
+  
+  // Zones
+  state.mp.z.forEach(zone => {
+    cityCol.appendChild(createPlannerCityHeader(zone, false));
+  });
+  
+  ui.wpGrid.appendChild(cityCol);
+  
+  // 2. Build Timeline Column
+  const timelineCol = document.createElement("div");
+  timelineCol.className = "timeline-col";
+  
+  const track = document.createElement("div");
+  track.className = "timeline-track";
+  
+  // Scrubber Overlay
+  const scrubber = document.createElement("div");
+  scrubber.className = "scrubber-overlay hidden"; // Hidden until hover/select
+  scrubber.id = "wp-scrubber";
+  track.appendChild(scrubber);
+  
+  const ghost = document.createElement("div");
+  ghost.className = "ghost-scrubber hidden";
+  ghost.id = "wp-ghost";
+  track.appendChild(ghost);
+  
+  // Render Rows
+  const baseDate = getPlannerDate(); 
+  
+  if (state.mp.h) {
+    track.appendChild(createPlannerRow(state.mp.h, baseDate, true));
+  }
+  state.mp.z.forEach(zone => {
+    track.appendChild(createPlannerRow(zone, baseDate, false));
+  });
+  
+  timelineCol.appendChild(track);
+  ui.wpGrid.appendChild(timelineCol);
+  
+  // Restore selection if any
+  if (state.mp.s) {
+    updateScrubberPositionFromState();
+  }
+}
+
+function createPlannerCityHeader(zone, isHome) {
+  const div = document.createElement("div");
+  div.className = `wp-row-header${isHome ? " home-row" : ""}`;
+  
+  const info = getZoneInfo(zone); // existing helper
+  
+  // Controls
+  if (!isHome) {
+    const controls = document.createElement("div");
+    controls.className = "wp-row-controls";
+    controls.innerHTML = `
+      <button class="wp-control-btn" data-action="promote" data-zone="${zone}" title="Make Home"><i class="fa-solid fa-arrow-up"></i></button>
+      <button class="wp-control-btn" data-action="remove" data-zone="${zone}" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    div.appendChild(controls);
+  } else {
+    // Home icon
+    const icon = document.createElement("div");
+    icon.style.position = "absolute";
+    icon.style.top = "6px"; 
+    icon.style.right = "6px";
+    icon.innerHTML = `<i class="fa-solid fa-house wp-home-icon"></i>`;
+    div.appendChild(icon);
+  }
+  
+  const nameRow = document.createElement("div");
+  nameRow.className = "wp-city-name";
+  nameRow.textContent = info.name;
+  
+  const timeRow = document.createElement("div");
+  timeRow.className = "wp-city-time";
+  timeRow.textContent = info.time; // Current time
+  
+  const badge = document.createElement("div");
+  badge.className = "wp-offset-badge";
+  badge.textContent = `UTC${info.offset}`;
+
+  div.append(badge, nameRow, timeRow);
+  return div;
+}
+
+function createPlannerRow(zone, baseDate, isHome) {
+  const row = document.createElement("div");
+  row.className = "wp-row-cells";
+  
+  const homeZone = state.mp.h;
+  if (!homeZone) return row;
+  
+  const homeInfo = getZoneInfo(homeZone);
+  const targetInfo = getZoneInfo(zone);
+  
+  const parseOff = (s) => {
+      const sign = s[0] === '-' ? -1 : 1;
+      const [hh, mm] = s.slice(1).split(':').map(Number);
+      return sign * (hh * 60 + mm);
+  };
+  
+  const hOff = parseOff(homeInfo.offset);
+  const tOff = parseOff(targetInfo.offset);
+  const diffMins = tOff - hOff;
+
+  const is24h = !!state.mp.f24;
+
+  for (let h = 0; h < 24; h++) {
+    const cell = document.createElement("div");
+    
+    let targetMins = (h * 60) + diffMins;
+    let dayShift = 0;
+    if (targetMins < 0) {
+        targetMins += 24 * 60;
+        dayShift = -1;
+    } else if (targetMins >= 24 * 60) {
+        targetMins -= 24 * 60;
+        dayShift = 1;
+    }
+    
+    const tHour = Math.floor(targetMins / 60);
+    const tMin = targetMins % 60;
+    
+    let cls = "wp-cell";
+    if (tHour >= 8 && tHour <= 17) cls += " business";
+    else if (tHour >= 18 && tHour <= 22) cls += " active";
+    else cls += " sleep";
+    
+    if (tHour === 0 && tMin === 0) {
+        cls += " date-boundary";
+    }
+    
+    cell.className = cls;
+    cell.dataset.h = h; 
+    
+    if (tHour === 0 && tMin === 0) {
+        const d = new Date(baseDate);
+        d.setDate(d.getDate() + dayShift);
+        cell.textContent = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }).toUpperCase();
+    } else {
+        if (is24h) {
+          cell.textContent = tMin > 0 ? `${tHour}:${String(tMin).padStart(2,'0')}` : `${tHour}`;
+        } else {
+          const ampm = tHour >= 12 ? "pm" : "am";
+          const h12 = tHour % 12 || 12;
+          if (tMin > 0) {
+             cell.textContent = `${h12}:${String(tMin).padStart(2,'0')}`;
+          } else {
+             // Only show am/pm for home zone or first occurrence
+             cell.textContent = isHome ? `${h12} ${ampm}` : `${h12}`;
+          }
+        }
+    }
+    row.appendChild(cell);
+  }
+  return row;
+}
+
+function handleScrubberMove(e) {
+  const track = ui.wpGrid.querySelector(".timeline-track");
+  const ghost = document.getElementById("wp-ghost");
+  if (!track || !ghost) return;
+  
+  const cell = e.target.closest(".wp-cell");
+  if (!cell) {
+    ghost.classList.add("hidden");
+    return;
+  }
+  
+  ghost.style.left = `${cell.offsetLeft}px`;
+  ghost.classList.remove("hidden");
+}
+
+function handleScrubberClick(e) {
+  const cell = e.target.closest(".wp-cell");
+  if (!cell) return;
+  
+  const hIndex = Number(cell.dataset.h);
+  const baseDate = getPlannerDate();
+  const ts = baseDate.getTime() + (hIndex * 3600 * 1000); 
+  
+  state.mp.s = ts;
+  scheduleSave();
+  updateScrubberPositionFromState();
+}
+
+function updateScrubberPositionFromState() {
+  const scrubber = document.getElementById("wp-scrubber");
+  if (!scrubber || !state.mp || !state.mp.s) {
+      if (scrubber) scrubber.classList.add("hidden");
+      return;
+  }
+  
+  const baseDate = getPlannerDate();
+  const diff = state.mp.s - baseDate.getTime();
+  const hIndex = Math.floor(diff / (3600 * 1000));
+  
+  if (hIndex >= 0 && hIndex < 24) {
+      const cell = ui.wpGrid.querySelector(`.wp-cell[data-h="${hIndex}"]`);
+      if (cell) {
+          scrubber.style.left = `${cell.offsetLeft}px`;
+          scrubber.classList.remove("hidden");
+      }
+  } else {
+      scrubber.classList.add("hidden");
+  }
+}
+
+function togglePlannerFormat() {
+  if (!state.mp) return;
+  state.mp.f24 = !state.mp.f24;
+  updatePlannerFormatBtn();
+  scheduleSave();
+  renderWorldPlanner();
+}
+
+function updatePlannerFormatBtn() {
+  const btn = document.getElementById("wp-format-toggle");
+  if (btn) {
+    btn.textContent = state.mp && state.mp.f24 ? "24h" : "12h";
+  }
+}
+

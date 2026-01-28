@@ -109,9 +109,24 @@
           <button id="copy-link" type="button">Copy link</button>
           <button id="share-qr" type="button">Share QR</button>
           <button id="lock-btn" type="button">Lock</button>
-          <a class="action-link" href="https://github.com/supunlakmal/hash-calendar" target="_blank" rel="noreferrer">
-            <i class="fa-brands fa-github" aria-hidden="true"></i>
-            <span>GitHub</span>
+          <button id="world-planner-btn" type="button" class="accent-btn" aria-label="Open World Planner">
+            <i class="fa-solid fa-earth-americas"></i> Planner
+          </button>
+
+          <!-- App Launcher -->
+          <div class="app-launcher-container">
+            <button id="app-launcher-btn" type="button" class="icon-btn" aria-label="Google Apps" aria-expanded="false">
+              <i class="fa-solid fa-grip"></i>
+            </button>
+            <div id="app-launcher-menu" class="app-launcher-menu hidden">
+              <!-- Content injected by JS -->
+            </div>
+          </div>
+
+          <div class="action-divider desktop-only"></div>
+
+          <i class="fa-brands fa-github" aria-hidden="true"></i>
+          <span>GitHub</span>
           </a>
         </div>
       </div>
@@ -363,6 +378,43 @@
       <p id="tz-empty" class="tz-empty hidden">No matches yet. Try a city, region, or UTC+5:30.</p>
     </div>
   </dialog>
+
+  <div id="world-planner-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="wp-modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="planner-modal-card">
+      <header class="planner-header">
+        <div class="planner-controls-left">
+          <h3 id="wp-modal-title" class="hidden">World Planner</h3>
+          <div class="wp-search-wrapper">
+            <i class="fa-solid fa-earth-americas wp-search-icon"></i>
+            <input id="wp-add-zone" type="text" placeholder="Add timezone (e.g. London)" autocomplete="off">
+            <ul id="wp-tz-results" class="tz-results hidden" role="listbox"></ul>
+          </div>
+        </div>
+        <div class="planner-controls-right">
+          <input id="wp-date-picker" type="date" class="wp-date-picker">
+          <button id="wp-format-toggle" type="button" class="accent-btn" style="min-width: 50px;">12h</button>
+          <button id="wp-close" type="button" class="icon-btn" aria-label="Close">x</button>
+        </div>
+      </header>
+
+      <div id="wp-grid" class="modal-grid-container">
+        <!-- JS will populate this -->
+        <!-- Example Structure for dev reference:
+        <div class="city-col">
+            <div class="wp-row-header home-row">...</div>
+            <div class="wp-row-header">...</div>
+        </div>
+        <div class="timeline-col">
+            <div class="timeline-track">
+                <div class="scrubber-overlay"></div>
+                <div class="wp-row-cells">...</div>
+            </div>
+        </div> 
+        -->
+      </div>
+    </div>
+  </div>
 
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
