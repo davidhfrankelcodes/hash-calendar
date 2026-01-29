@@ -6,12 +6,17 @@ export class AppLauncher {
     constructor() {
         this.apps = [
             {
+                name: 'Hash Calendar',
+                url: 'https://hash-calendar.netlify.app/',
+                icon: 'fa-solid fa-calendar-days',
+                color: '#1a73e8'
+            },
+            {
                 name: 'Spreadsheet Live',
                 url: 'https://spreadsheetlive.netlify.app/',
-                icon: 'fa-solid fa-table-cells', // FontAwesome icon
-                color: '#107c41' // Excel-like green
+                icon: 'fa-solid fa-table-cells',
+                color: '#107c41'
             }
-            // Future apps can be added here
         ];
 
         this.init();
