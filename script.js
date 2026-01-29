@@ -61,6 +61,33 @@ function cloneState(source) {
   return JSON.parse(JSON.stringify(source));
 }
 
+function createRipple(event) {
+  const button = event.target.closest("button");
+  if (!button) return;
+
+  const circle = document.createElement("span");
+  const diameter = Math.max(button.clientWidth, button.clientHeight);
+  const radius = diameter / 2;
+
+  const rect = button.getBoundingClientRect();
+
+  circle.style.width = circle.style.height = `${diameter}px`;
+  circle.style.left = `${event.clientX - rect.left - radius}px`;
+  circle.style.top = `${event.clientY - rect.top - radius}px`;
+  circle.classList.add("ripple");
+
+  const ripple = button.getElementsByClassName("ripple")[0];
+  if (ripple) {
+    ripple.remove();
+  }
+
+  button.appendChild(circle);
+  
+  circle.addEventListener("animationend", () => {
+    circle.remove();
+  });
+}
+
 function startOfDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -681,11 +708,34 @@ function updateViewButtons() {
 function setView(view) {
   if (!VALID_VIEWS.has(view)) return;
   if (currentView === view) return;
-  currentView = view;
-  if (state && state.s) state.s.v = view;
-  updateViewButtons();
-  render();
-  persistStateToHash();
+
+  const grid = ui.calendarGrid;
+  if (grid) {
+    grid.classList.add("view-animate-out");
+    grid.addEventListener("animationend", function handleExit() {
+      grid.classList.remove("view-animate-out");
+      grid.removeEventListener("animationend", handleExit);
+      
+      currentView = view;
+      if (state && state.s) state.s.v = view;
+      updateViewButtons();
+      render();
+      
+      grid.classList.add("view-animate-in");
+      grid.addEventListener("animationend", function handleEnter() {
+        grid.classList.remove("view-animate-in");
+        grid.removeEventListener("animationend", handleEnter);
+      }, { once: true });
+      
+      persistStateToHash();
+    }, { once: true });
+  } else {
+    currentView = view;
+    if (state && state.s) state.s.v = view;
+    updateViewButtons();
+    render();
+    persistStateToHash();
+  }
 }
 
 function updateLockUI() {
@@ -831,6 +881,14 @@ function render() {
         onSelectDay: handleSelectDay,
       });
     }
+  }
+
+  // Assign stagger indices to calendar cells
+  if (ui.calendarGrid) {
+    const cells = ui.calendarGrid.querySelectorAll(".day-cell, .time-cell, .mini-month, .agenda-event-item");
+    cells.forEach((cell, index) => {
+      cell.style.setProperty("--cell-index", index);
+    });
   }
 
   renderEventList();
@@ -1507,6 +1565,12 @@ if (document.readyState === "loading") {
 } else {
   init();
 }
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest("button")) {
+    createRipple(e);
+  }
+});
 
 /* --- PWA Service Worker Registration --- */
 if ('serviceWorker' in navigator) {

@@ -21,6 +21,7 @@
   --focus-neutral: var(--text);
   --shadow-sm: 0 1px 2px rgba(60, 64, 67, 0.12);
   --shadow-md: 0 2px 8px rgba(60, 64, 67, 0.16);
+  --shadow-lg: 0 4px 12px rgba(60, 64, 67, 0.2);
 }
 
 body[data-theme="dark"] {
@@ -64,6 +65,8 @@ body {
 
 button {
   font-family: inherit;
+  position: relative;
+  overflow: hidden;
 }
 
 .action-link {
@@ -587,11 +590,11 @@ button:disabled {
   background: var(--panel);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .agenda-event-item:hover {
-  transform: translateX(3px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
   border-color: var(--border);
 }
@@ -646,6 +649,8 @@ button:disabled {
   cursor: pointer;
   background: var(--panel);
   transition: background 0.15s ease;
+  animation: cell-fade-in 0.4s ease backwards;
+  animation-delay: calc(var(--cell-index, 0) * 15ms);
 }
 
 .day-cell:hover {
@@ -685,6 +690,14 @@ button:disabled {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.event-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  filter: brightness(1.1);
 }
 
 .event-chip .time {
@@ -2136,5 +2149,85 @@ body[data-theme="dark"] .app-launcher-menu {
     100% { transform: translateY(0); }
   }
 }
+
+/* --- Micro-animations & Transitions --- */
+
+/* View Transitions */
+.calendar-grid.view-animate-in {
+  animation: view-fade-in 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.calendar-grid.view-animate-out {
+  animation: view-fade-out 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes view-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes view-fade-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+/* Ripple Effect */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(0);
+  animation: ripple-animation 0.6s linear;
+  pointer-events: none;
+}
+
+body[data-theme="dark"] .ripple {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes ripple-animation {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* Stagger Animation */
+@keyframes cell-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Skeleton Loading */
+.skeleton {
+  background: linear-gradient(90deg, var(--panel-2) 25%, var(--border-soft) 50%, var(--panel-2) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Hover Lift for Cards */
+.side-card, .tz-card, .agenda-event-item, .event-item {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.side-card:hover, .tz-card:hover, .event-item:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border);
+}
+
 
 
