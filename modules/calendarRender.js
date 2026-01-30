@@ -268,15 +268,29 @@ export function renderYearView({ container, year, eventsByDay, selectedDate, wee
       grid.appendChild(cell);
     });
 
-    const { dates } = getMonthGridRange(new Date(year, month, 1), weekStartsOnMonday);
-    dates.forEach((date) => {
+    const firstOfMonth = new Date(year, month, 1);
+    const dayOfWeek = firstOfMonth.getDay();
+    const offset = weekStartsOnMonday ? (dayOfWeek + 6) % 7 : dayOfWeek;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const totalCells = Math.ceil((offset + daysInMonth) / 7) * 7;
+
+    for (let i = 0; i < totalCells; i += 1) {
+      const dayIndex = i - offset + 1;
+      if (i < offset || dayIndex > daysInMonth) {
+        const emptyCell = document.createElement("div");
+        emptyCell.className = "mini-day is-empty";
+        emptyCell.setAttribute("aria-hidden", "true");
+        grid.appendChild(emptyCell);
+        continue;
+      }
+
+      const date = new Date(year, month, dayIndex);
       const key = formatDateKey(date);
       const dayCell = document.createElement("button");
       dayCell.type = "button";
       dayCell.className = "mini-day";
-      if (date.getMonth() !== month) dayCell.classList.add("is-outside");
       if (selectedDate && key === formatDateKey(selectedDate)) dayCell.classList.add("is-selected");
-      dayCell.textContent = String(date.getDate());
+      dayCell.textContent = String(dayIndex);
       if (eventsByDay.has(key)) {
         const dot = document.createElement("span");
         dot.className = "mini-dot";
@@ -284,7 +298,7 @@ export function renderYearView({ container, year, eventsByDay, selectedDate, wee
       }
       dayCell.addEventListener("click", () => onSelectDay(date));
       grid.appendChild(dayCell);
-    });
+    }
 
     wrapper.appendChild(grid);
     container.appendChild(wrapper);

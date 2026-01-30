@@ -810,6 +810,11 @@ button:disabled {
   position: relative;
 }
 
+.mini-day.is-empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .mini-day.is-outside {
   color: var(--muted);
 }
