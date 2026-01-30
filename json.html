@@ -161,9 +161,7 @@
       }
 
       const json = JSON.stringify(parsed);
-      const compressed = window.LZString.compressToEncodedURIComponent(json);
-      const basePath = window.location.pathname.replace(/json\.html$/, "");
-      const target = `${window.location.origin}${basePath}#${compressed}`;
+      const compressed = window.LZString.compressToEncodedURIComponent(json);      const target = `${window.location.origin}/#${compressed}`;
       status.textContent = "Redirecting to calendar...";
       window.location.replace(target);
     })();
