@@ -1,7 +1,8 @@
-const CACHE_NAME = 'hash-calendar-v1';
+const CACHE_NAME = 'hash-calendar-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './json.html',
   './styles.css',
   './script.js',
   './manifest.json',

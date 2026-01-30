@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>hash-calendar JSON bridge</title>
+  <meta name="robots" content="noindex">
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #f6f6f4;
+      color: #1f1f1f;
+    }
+
+    main {
+      max-width: 720px;
+      margin: 12vh auto 0;
+      padding: 24px;
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 12px;
+    }
+
+    p {
+      margin: 0 0 12px;
+      line-height: 1.6;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 12px;
+      background: #0d0d0d;
+      color: #f6f6f4;
+      border-radius: 10px;
+      overflow: auto;
+      font-size: 0.875rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>hash-calendar JSON bridge</h1>
+    <p id="status">Processing JSON payload...</p>
+    <p id="hint" class="hidden">Pass a URL-encoded JSON string as <code>?json=</code> or raw JSON as the only query param.</p>
+    <pre id="details" class="hidden"></pre>
+  </main>
+
+  <script src="modules/lz-string.min.js"></script>
+  <script>
+    (function () {
+      const status = document.getElementById("status");
+      const details = document.getElementById("details");
+      const hint = document.getElementById("hint");
+
+      function showError(message, error) {
+        status.textContent = message;
+        hint.classList.remove("hidden");
+        if (error) {
+          details.textContent = String(error);
+          details.classList.remove("hidden");
+        }
+      }
+
+      function extractRawParam(search, key) {
+        if (!search) return null;
+        const raw = search.startsWith("?") ? search.slice(1) : search;
+        const token = `${key}=`;
+        const idx = raw.indexOf(token);
+        if (idx === -1) return null;
+        let value = raw.slice(idx + token.length);
+        let cursor = 0;
+        while (true) {
+          const amp = value.indexOf("&", cursor);
+          if (amp === -1) break;
+          const next = value.slice(amp + 1);
+          if (/^[A-Za-z0-9_.-]+=/.test(next)) {
+            value = value.slice(0, amp);
+            break;
+          }
+          cursor = amp + 1;
+        }
+        return value || null;
+      }
+
+      function maybeDecode(value) {
+        if (typeof value !== "string") return value;
+        if (!/%[0-9A-Fa-f]{2}/.test(value) && value.indexOf("+") === -1) {
+          return value;
+        }
+        try {
+          return decodeURIComponent(value.replace(/\+/g, " "));
+        } catch (error) {
+          return value;
+        }
+      }
+
+      function readPayloadCandidates() {
+        const keys = ["json", "data", "state", "payload"];
+        const candidates = [];
+        const params = new URLSearchParams(window.location.search);
+        keys.forEach((key) => {
+          const value = params.get(key);
+          if (value) candidates.push(value);
+        });
+        const search = window.location.search;
+        keys.forEach((key) => {
+          const rawValue = extractRawParam(search, key);
+          if (rawValue) candidates.push(maybeDecode(rawValue));
+        });
+        if (window.location.hash && window.location.hash.length > 1) {
+          const raw = window.location.hash.slice(1);
+          try {
+            candidates.push(decodeURIComponent(raw));
+          } catch (error) {
+            candidates.push(raw);
+          }
+        }
+        return candidates.filter((value, index, arr) => value && arr.indexOf(value) === index);
+      }
+
+      if (!window.LZString || !window.LZString.compressToEncodedURIComponent) {
+        showError("Compression library failed to load.");
+        return;
+      }
+
+      const candidates = readPayloadCandidates();
+      if (!candidates.length) {
+        showError("Missing JSON payload.");
+        return;
+      }
+
+      let parsed;
+      let lastError;
+      for (const candidate of candidates) {
+        try {
+          parsed = JSON.parse(candidate);
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (!parsed) {
+        showError("Invalid JSON payload. URL-encode it or send raw JSON as the only query param.", lastError);
+        return;
+      }
+
+      const json = JSON.stringify(parsed);
+      const compressed = window.LZString.compressToEncodedURIComponent(json);
+      const basePath = window.location.pathname.replace(/json\.html$/, "");
+      const target = `${window.location.origin}${basePath}#${compressed}`;
+      status.textContent = "Redirecting to calendar...";
+      window.location.replace(target);
+    })();
+  </script>
+</body>
+
+</html>

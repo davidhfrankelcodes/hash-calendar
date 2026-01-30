@@ -46,6 +46,14 @@ GitHub: https://github.com/supunlakmal/hash-calendar
   </tr>
   <tr>
     <td><img src="demo/demo-7.png" alt="hash-calendar demo 7" width="420"></td>
+    <td><img src="demo/demo-8.png" alt="hash-calendar demo 8" width="420"></td>
+  </tr>
+  <tr>
+    <td><img src="demo/demo-9.png" alt="hash-calendar demo 9" width="420"></td>
+    <td><img src="demo/demo-10.png" alt="hash-calendar demo 10" width="420"></td>
+  </tr>
+  <tr>
+    <td><img src="demo/demo-11.png" alt="hash-calendar demo 11" width="420"></td>
     <td></td>
   </tr>
 </table>
@@ -57,6 +65,56 @@ GitHub: https://github.com/supunlakmal/hash-calendar
 - No data leaves the browser unless you share the link.
 
 Encrypted links start with `#ENC:`. Clearing the hash resets the calendar.
+
+## URL hash payload (full schema + example)
+
+The URL hash stores a compressed JSON payload (LZ-String). The JSON below is the compact form **before** compression. (This section intentionally excludes encrypted payloads.)
+
+```json
+{
+  "t": "Acme Schedule",
+  "c": { "1": "2ecc71", "3": "e74c3c" },
+  "e": [
+    [28930080, 30, "Daily standup", 1, "d"],
+    [28930200, 0, "Launch day", 3],
+    [28930800, 90, "Design review"]
+  ],
+  "s": { "d": 1, "m": 1, "v": "week" },
+  "z": ["America/New_York", "Europe/London"],
+  "mp": {
+    "h": "America/Los_Angeles",
+    "z": ["UTC", "Asia/Tokyo"],
+    "s": 1769721600000,
+    "d": "2026-01-30",
+    "f24": 1
+  }
+}
+```
+
+Key meanings:
+
+- `t`: Calendar title (string).
+- `c`: Colors.
+  - **Compact form (most common):** an object of palette overrides by index (keys `"0"`, `"1"`, ...), values are hex colors **without** the `#`.
+  - **Expanded form (also accepted):** an array of hex colors (with or without `#`).
+- `e`: Events array. Each event entry is a compact array:
+  - `[startMin, duration, title]` is the minimum shape.
+  - Optional `colorIndex` and `rule` follow: `[startMin, duration, title, colorIndex, rule]`.
+  - `startMin` is minutes since Unix epoch (`Math.floor(date.getTime() / 60000)`).
+  - `duration` is minutes; `0` means an all-day event.
+  - `colorIndex` points into the palette (defaults to `0`).
+  - `rule` is recurrence: `d` (daily), `w` (weekly), `m` (monthly), `y` (yearly).
+- `s`: Settings object:
+  - `d`: Theme (`1` = dark, `0` = light).
+  - `m`: Week start (`1` = Monday, `0` = Sunday).
+  - `v`: Last view (`day`, `week`, `month`, `year`, `agenda`).
+- `z`: Saved world-clock timezones (IANA strings).
+- `mp`: World planner state (optional):
+  - `h`: Home timezone (IANA string).
+  - `z`: Extra timezones to compare (IANA strings).
+  - `s`: Selected scrubber timestamp (milliseconds since Unix epoch).
+  - `d`: Planner date (YYYY-MM-DD string).
+  - `f24`: Time format (`1` = 24h, `0` = 12h).
 
 ## Getting started
 
